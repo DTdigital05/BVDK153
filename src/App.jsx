@@ -13,7 +13,7 @@ import { initializeApp } from "firebase/app";
 import { getFirestore, collection, getDocs, addDoc, deleteDoc, doc, updateDoc, setDoc, getDoc } from "firebase/firestore";
 import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "firebase/auth";
 
-// ⚠️ QUAN TRỌNG: Cấu hình Firebase (Đã điền sẵn từ file bạn gửi)
+// ⚠️ QUAN TRỌNG: Cấu hình Firebase
 const firebaseConfig = {
   apiKey: "AIzaSyCm11kZ3YojvvPWi2zdYIgm5MtgmxsWM2s",
   authDomain: "benhvien153-web.firebaseapp.com",
@@ -44,6 +44,31 @@ const ICON_MAP = {
   "HeartPulse": <HeartPulse />, "ShieldCheck": <ShieldCheck />, "Car": <Car />
 };
 
+// --- DỮ LIỆU MẪU (Sử dụng khi DB trống) ---
+const MOCK_DOCTORS = [
+  { id: 1, name: "BS.CKII Nguyễn Văn A", role: "Giám Đốc", img: "https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=400", bio: "Hơn 20 năm kinh nghiệm quản lý y tế. Nguyên trưởng khoa Nội BV Đa khoa Tỉnh. Chuyên sâu về Tim mạch và Nội tiết." },
+  { id: 2, name: "ThS.BS Trần Thị B", role: "Trưởng Khoa Nội", img: "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=400", bio: "Tốt nghiệp Thạc sĩ Y khoa tại Đại học Y Hà Nội. Có 15 năm kinh nghiệm điều trị các bệnh lý nội khoa phức tạp." },
+  { id: 3, name: "BS.CKI Lê Văn C", role: "Khoa Ngoại", img: "https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&q=80&w=400", bio: "Chuyên gia phẫu thuật nội soi và chấn thương chỉnh hình." },
+  { id: 4, name: "BS.CKI Phạm Thị D", role: "Khoa Sản", img: "https://images.unsplash.com/photo-1594824476967-48c8b964273f?auto=format&fit=crop&q=80&w=400", bio: "Hơn 10 năm kinh nghiệm trong lĩnh vực Sản phụ khoa." }
+];
+
+const MOCK_SPECIALTIES = [
+  { id: 1, title: "Nội Khoa", desc: "Chẩn đoán và điều trị bệnh lý nội khoa.", icon: "Activity", detail: "Khoa Nội là một trong những chuyên khoa mũi nhọn..." },
+  { id: 2, title: "Nhi Khoa", desc: "Chăm sóc sức khỏe toàn diện cho bé.", icon: "Baby", detail: "Không gian khám thân thiện, đội ngũ bác sĩ tâm lý..." },
+  { id: 3, title: "Xét Nghiệm", desc: "Hệ thống máy xét nghiệm tự động.", icon: "Syringe", detail: "Trung tâm xét nghiệm đạt chuẩn An toàn sinh học cấp II..." }
+];
+
+const MOCK_PACKAGES = [
+  { id: 1, title: "Khám Tổng Quát", price: "1.500.000đ", features: "Xét nghiệm máu, Siêu âm, X-Quang", detail: "Gói khám bao gồm đầy đủ các xét nghiệm cơ bản..." },
+  { id: 2, title: "Tầm Soát Ung Thư", price: "3.200.000đ", features: "MRI, CT-Scanner, Marker ung thư", detail: "Tầm soát sớm các loại ung thư phổ biến..." },
+  { id: 3, title: "Thai Sản Trọn Gói", price: "8.000.000đ", features: "Khám thai, Siêu âm 5D, Xét nghiệm", detail: "Theo dõi thai kỳ toàn diện từ tuần đầu tiên..." }
+];
+
+const MOCK_NEWS = [
+  { id: 1, title: "Lịch nghỉ lễ 30/4 - 1/5", summary: "Thông báo lịch nghỉ lễ và trực cấp cứu...", date: "2024-04-20", img: "https://images.unsplash.com/photo-1505751172876-fa1923c5c528?w=400", content: "Bệnh viện xin thông báo lịch nghỉ lễ..." },
+  { id: 2, title: "Triển khai kỹ thuật mới", summary: "Áp dụng nội soi NBI phát hiện ung thư sớm", date: "2024-05-15", img: "https://images.unsplash.com/photo-1579684385180-1ea55f9f8981?w=400", content: "Công nghệ nội soi NBI dải tần ánh sáng hẹp..." }
+];
+
 const App = () => {
   // --- REFS ---
   const homeRef = useRef(null);
@@ -53,15 +78,14 @@ const App = () => {
   const doctorsRef = useRef(null);
   const newsRef = useRef(null);
 
-  // --- STATE QUẢN LÝ ---
+  // --- STATE ---
   const [isAdminMode, setIsAdminMode] = useState(false);
   const [user, setUser] = useState(null);
   const [activeAdminTab, setActiveAdminTab] = useState('bookings');
   const [loading, setLoading] = useState(true);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [dbStatus, setDbStatus] = useState(!!db); // Trạng thái kết nối DB
+  const [dbStatus, setDbStatus] = useState(!!db);
 
-  // --- SLIDER & MODAL ---
   const [currentSlide, setCurrentSlide] = useState(0);
   const [modalType, setModalType] = useState(null); 
   const [selectedItem, setSelectedItem] = useState(null);
@@ -81,40 +105,36 @@ const App = () => {
   });
 
   const [heroSlides, setHeroSlides] = useState([
-    { id: 1, title1: "Sức Khỏe Của Bạn", title2: "Sứ Mệnh Của Chúng Tôi", desc: "Hệ thống y tế chuẩn quốc tế.", img: "https://images.unsplash.com/photo-1631217868264-e5b90bb7e133?auto=format&fit=crop&q=80&w=1200" },
-    { id: 2, title1: "Công Nghệ Cao", title2: "Chẩn Đoán Chính Xác", desc: "Ứng dụng các kỹ thuật chẩn đoán hình ảnh tiên tiến.", img: "https://images.unsplash.com/photo-1579684385180-1ea55f9f8981?auto=format&fit=crop&q=80&w=1200" },
-    { id: 3, title1: "Đội Ngũ Chuyên Gia", title2: "Tận Tâm - Y Đức", desc: "Quy tụ đội ngũ bác sĩ chuyên khoa giàu kinh nghiệm.", img: "https://images.unsplash.com/photo-1505751172876-fa1923c5c528?auto=format&fit=crop&q=80&w=1200" }
+    { id: 1, title1: "Sức Khỏe Của Bạn", title2: "Sứ Mệnh Của Chúng Tôi", desc: "Hệ thống y tế chuẩn quốc tế với trang thiết bị hiện đại và đội ngũ chuyên gia tận tâm.", img: "https://images.unsplash.com/photo-1631217868264-e5b90bb7e133?auto=format&fit=crop&q=80&w=1200" },
+    { id: 2, title1: "Công Nghệ Cao", title2: "Chẩn Đoán Chính Xác", desc: "Ứng dụng các kỹ thuật chẩn đoán hình ảnh tiên tiến: CT-Scanner, MRI, Nội soi NBI giúp phát hiện bệnh sớm.", img: "https://images.unsplash.com/photo-1579684385180-1ea55f9f8981?auto=format&fit=crop&q=80&w=1200" },
+    { id: 3, title1: "Đội Ngũ Chuyên Gia", title2: "Tận Tâm - Y Đức", desc: "Quy tụ đội ngũ bác sĩ chuyên khoa giàu kinh nghiệm từ các bệnh viện tuyến trung ương.", img: "https://images.unsplash.com/photo-1505751172876-fa1923c5c528?auto=format&fit=crop&q=80&w=1200" }
   ]);
 
   const [aboutContent, setAboutContent] = useState({
-    title: "Về Bệnh Viện 153", desc: "Trải qua hơn 15 năm hình thành và phát triển...", 
+    title: "Về Bệnh Viện 153", desc: "Trải qua hơn 15 năm hình thành và phát triển, Bệnh viện Đa khoa 153 tự hào là đơn vị y tế tư nhân uy tín hàng đầu tại Tuyên Quang.", 
     img: "https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?auto=format&fit=crop&q=80&w=800"
   });
 
-  // --- CHATBOX & ADMIN FORM ---
-  const [isChatOpen, setIsChatOpen] = useState(false);
-  const [chatInput, setChatInput] = useState("");
-  const [messages, setMessages] = useState([{ id: 1, sender: 'bot', text: 'Xin chào! Tôi là trợ lý ảo AI. Tôi có thể giúp gì cho bạn?' }]);
-  const messagesEndRef = useRef(null);
-
+  // --- ADMIN STATE ---
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState('');
-  
-  // Form Data
   const [newDoctor, setNewDoctor] = useState({ name: '', role: '', img: '', bio: '' });
   const [newSpecialty, setNewSpecialty] = useState({ title: '', desc: '', icon: 'Activity', detail: '' });
   const [newPackage, setNewPackage] = useState({ title: '', price: '', features: '', detail: '' });
   const [newNews, setNewNews] = useState({ title: '', summary: '', date: '', img: '', content: '' });
   const [editingNewsId, setEditingNewsId] = useState(null);
 
-  // --- INIT ---
+  // --- CHATBOX STATE ---
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [chatInput, setChatInput] = useState("");
+  const [messages, setMessages] = useState([{ id: 1, sender: 'bot', text: 'Xin chào! Tôi là trợ lý ảo AI. Tôi có thể giúp gì cho bạn?' }]);
+  const messagesEndRef = useRef(null);
+
   useEffect(() => {
     fetchData();
     if (auth) {
-      const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-        setUser(currentUser);
-      });
+      const unsubscribe = onAuthStateChanged(auth, setUser);
       return () => unsubscribe();
     }
   }, []);
@@ -135,15 +155,17 @@ const App = () => {
           getDocs(collection(db, "bookings"))
         ]);
         
-        // Chỉ set state nếu có dữ liệu, nếu không giữ nguyên mẫu hoặc set rỗng
-        if(!docSnap.empty) setDoctors(docSnap.docs.map(d => ({ id: d.id, ...d.data() })));
-        if(!specSnap.empty) setSpecialties(specSnap.docs.map(d => ({ id: d.id, ...d.data() })));
-        if(!pkgSnap.empty) setPackages(pkgSnap.docs.map(d => ({ id: d.id, ...d.data() })));
-        if(!newsSnap.empty) setNews(newsSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+        // FIX LỖI: Nếu DB trống thì dùng MOCK DATA, nếu có dữ liệu thì dùng DB
+        setDoctors(!docSnap.empty ? docSnap.docs.map(d => ({ id: d.id, ...d.data() })) : MOCK_DOCTORS);
+        setSpecialties(!specSnap.empty ? specSnap.docs.map(d => ({ id: d.id, ...d.data() })) : MOCK_SPECIALTIES);
+        setPackages(!pkgSnap.empty ? pkgSnap.docs.map(d => ({ id: d.id, ...d.data() })) : MOCK_PACKAGES);
+        setNews(!newsSnap.empty ? newsSnap.docs.map(d => ({ id: d.id, ...d.data() })) : MOCK_NEWS);
         
-        const bookingsData = bookSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-        bookingsData.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-        setBookings(bookingsData);
+        if (!bookSnap.empty) {
+          const bookingsData = bookSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+          bookingsData.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+          setBookings(bookingsData);
+        }
 
         const settingsSnap = await getDocs(collection(db, "settings"));
         settingsSnap.forEach(doc => {
@@ -153,10 +175,12 @@ const App = () => {
       } catch (error) { 
         console.error("Lỗi kết nối Firebase:", error); 
         setDbStatus(false);
+        // Fallback về Mock Data khi lỗi mạng
+        setDoctors(MOCK_DOCTORS); setSpecialties(MOCK_SPECIALTIES); setPackages(MOCK_PACKAGES); setNews(MOCK_NEWS);
       }
     } else {
-      // Mock data logic (như cũ)
       setDbStatus(false);
+      setDoctors(MOCK_DOCTORS); setSpecialties(MOCK_SPECIALTIES); setPackages(MOCK_PACKAGES); setNews(MOCK_NEWS);
     }
     setLoading(false);
   };
@@ -168,84 +192,50 @@ const App = () => {
     }
   };
 
-  // --- HÀM XỬ LÝ ẢNH (Giới hạn 500KB để lưu được vào DB) ---
   const handleImageUpload = (e, cb) => {
     const file = e.target.files[0];
     if (file) {
-      if (file.size > 500 * 1024) { 
-        alert("Ảnh quá lớn! Vui lòng chọn ảnh dưới 500KB để đảm bảo lưu được vào hệ thống.");
-        return;
-      }
+      if (file.size > 500 * 1024) { alert("Ảnh quá lớn! Vui lòng chọn ảnh dưới 500KB."); return; }
       const reader = new FileReader();
       reader.onloadend = () => cb(reader.result);
       reader.readAsDataURL(file);
     }
   };
 
-  const handleLogin = async (e) => { e.preventDefault(); if (auth) try { await signInWithEmailAndPassword(auth, email, password); } catch { setLoginError('Email hoặc mật khẩu sai!'); } else if (email==='admin' && password==='123') setUser({email:'admin'}); else setLoginError('Demo: admin/123'); };
+  // --- CRUD & AUTH ---
+  const handleLogin = async (e) => { e.preventDefault(); if (auth) try { await signInWithEmailAndPassword(auth, email, password); } catch { setLoginError('Sai thông tin!'); } else if (email==='admin' && password==='123') setUser({email:'admin'}); else setLoginError('Demo: admin/123'); };
   const handleLogout = async () => { if (auth) await signOut(auth); setUser(null); setIsAdminMode(false); };
 
-  // --- CRUD HELPERS VỚI THÔNG BÁO LỖI CHI TIẾT ---
   const addItem = async (col, item, setSt, st) => { 
     try {
-      if (db) { 
-        await addDoc(collection(db, col), item); 
-        alert("Thêm mới thành công! (Đã lưu)");
-        fetchData(); 
-      } else { 
-        setSt([...st, {...item, id: Date.now()}]); 
-        alert("Thêm thành công (Chế độ Demo - F5 sẽ mất)");
-      }
-    } catch (e) {
-      alert("Lỗi khi lưu: " + e.message + "\nKiểm tra lại quyền truy cập Firestore (Rules)!");
-    }
+      if (db) { await addDoc(collection(db, col), item); alert("Đã lưu thành công!"); fetchData(); } 
+      else { setSt([...st, {...item, id: Date.now()}]); alert("Đã lưu (Demo)"); }
+    } catch (e) { alert("Lỗi: " + e.message); }
   };
   
   const updateItem = async (col, id, item, setSt, st) => {
     try {
-      if (db) { 
-        await updateDoc(doc(db, col, id), item); 
-        alert("Cập nhật thành công!");
-        fetchData(); 
-      } else { 
-        setSt(st.map(i => i.id === id ? { ...item, id } : i)); 
-        alert("Đã cập nhật (Demo)");
-      }
-    } catch (e) {
-      alert("Lỗi khi cập nhật: " + e.message);
-    }
+      if (db) { await updateDoc(doc(db, col, id), item); alert("Cập nhật thành công!"); fetchData(); } 
+      else { setSt(st.map(i => i.id === id ? { ...item, id } : i)); alert("Đã cập nhật (Demo)"); }
+    } catch (e) { alert("Lỗi: " + e.message); }
   };
 
   const deleteItem = async (col, id, setSt, st) => { 
-    if (confirm("Bạn chắc chắn muốn xóa?")) { 
+    if (confirm("Xóa mục này?")) { 
       try {
-        if (db) { 
-          await deleteDoc(doc(db, col, id)); 
-          alert("Đã xóa thành công!");
-          fetchData(); 
-        } else { 
-          setSt(st.filter(i=>i.id!==id)); 
-        }
-      } catch (e) {
-        alert("Lỗi khi xóa: " + e.message);
-      }
+        if (db) { await deleteDoc(doc(db, col, id)); alert("Đã xóa!"); fetchData(); } 
+        else { setSt(st.filter(i=>i.id!==id)); }
+      } catch (e) { alert("Lỗi: " + e.message); }
     } 
   };
 
   const saveSettings = async (id, data) => { 
     try {
-      if (db) { 
-        await setDoc(doc(db, "settings", id), data); 
-        alert("Đã lưu cấu hình thành công!"); 
-      } else { 
-        alert("Lưu (Demo)!"); 
-      }
-    } catch (e) {
-      alert("Lỗi lưu cấu hình: " + e.message);
-    }
+      if (db) { await setDoc(doc(db, "settings", id), data); alert("Đã lưu cấu hình!"); } 
+      else { alert("Lưu (Demo)!"); }
+    } catch (e) { alert("Lỗi: " + e.message); }
   };
 
-  // Helper Tin Tức
   const startEditNews = (item) => { setNewNews(item); setEditingNewsId(item.id); };
   const cancelEditNews = () => { setNewNews({ title: '', summary: '', date: '', img: '', content: '' }); setEditingNewsId(null); };
   const handleSaveNews = () => {
@@ -253,43 +243,32 @@ const App = () => {
     else { addItem('news', newNews, setNews, news); setNewNews({ title: '', summary: '', date: '', img: '', content: '' }); }
   };
 
-  // Chatbox Logic
   const handleSendMessage = (e) => {
     e.preventDefault(); if (!chatInput.trim()) return;
     setMessages(prev => [...prev, { id: Date.now(), sender: 'user', text: chatInput }]);
     const txt = chatInput.toLowerCase(); setChatInput("");
     setTimeout(() => {
       let res = "Cảm ơn bạn. Nhân viên sẽ liên hệ lại ạ.";
-      if (txt.includes('giá') || txt.includes('tiền')) res = "Chi phí khám từ 150k - 500k tùy chuyên khoa ạ. Gói tổng quát từ 1.5tr.";
+      if (txt.includes('giá') || txt.includes('tiền')) res = "Chi phí khám từ 150k - 500k tùy chuyên khoa ạ.";
       else if (txt.includes('địa chỉ') || txt.includes('ở đâu')) res = generalInfo.address;
-      else if (txt.includes('giờ') || txt.includes('lịch')) res = generalInfo.workingHours + ". Cấp cứu 24/7.";
-      else if (txt.includes('bác sĩ')) res = "Bệnh viện có nhiều chuyên gia giỏi. Bạn muốn khám khoa nào ạ?";
       setMessages(prev => [...prev, { id: Date.now()+1, sender: 'bot', text: res }]);
     }, 800);
   };
 
-  // Modal & Booking
   const openModal = (type, item) => { setModalType(type); setSelectedItem(item); if(type==='booking' && item?.name && modalType==='doctor') setBookingForm(prev=>({...prev, doctor: item.name})); };
   const closeModal = () => { setModalType(null); setSelectedItem(null); };
   const submitBooking = async (e) => { 
     e.preventDefault(); 
-    if (!bookingForm.name || !bookingForm.phone) return alert("Vui lòng điền đủ tên và SĐT!");
+    if (!bookingForm.name || !bookingForm.phone) return alert("Vui lòng điền tên và SĐT!");
     const newBookingData = { ...bookingForm, createdAt: new Date().toISOString() };
-    if (db) {
-      await addDoc(collection(db, "bookings"), newBookingData);
-      alert("Đăng ký thành công! Chúng tôi sẽ gọi lại ngay.");
-      fetchData();
-    } else {
-      alert(`(Demo) Đã nhận: ${bookingForm.name}.`);
-      setBookings(prev => [newBookingData, ...prev]);
-    }
-    closeModal(); 
-    setBookingForm({name:'',phone:'',date:'',doctor:'',note:''}); 
+    if (db) { await addDoc(collection(db, "bookings"), newBookingData); alert("Đăng ký thành công!"); fetchData(); } 
+    else { alert(`(Demo) Đã nhận: ${bookingForm.name}.`); setBookings(prev => [newBookingData, ...prev]); }
+    closeModal(); setBookingForm({name:'',phone:'',date:'',doctor:'',note:''}); 
   };
 
   const renderLogo = (sm) => generalInfo.logoUrl ? <img src={generalInfo.logoUrl} className={`${sm?'h-10 w-10':'h-12 w-auto'} rounded object-contain bg-white`}/> : <div className="bg-blue-700 w-10 h-10 rounded flex items-center justify-center text-white font-bold text-xs">Logo</div>;
 
-  // --- ADMIN VIEW ---
+  // --- ADMIN RENDER ---
   if (isAdminMode && !user) return (
     <div className="min-h-screen bg-slate-100 flex items-center justify-center"><div className="bg-white p-8 rounded shadow w-96"><h2 className="text-xl font-bold mb-4">Admin Login</h2><form onSubmit={handleLogin} className="space-y-4"><input className="w-full border p-2 rounded" placeholder="Email" value={email} onChange={e=>setEmail(e.target.value)}/><input type="password" className="w-full border p-2 rounded" placeholder="Pass" value={password} onChange={e=>setPassword(e.target.value)}/><button className="w-full bg-blue-600 text-white p-2 rounded">Login</button>{loginError && <p className="text-red-500 text-sm">{loginError}</p>}</form><button onClick={()=>setIsAdminMode(false)} className="mt-4 text-sm text-slate-500">Back</button></div></div>
   );
@@ -298,42 +277,26 @@ const App = () => {
     <div className="min-h-screen bg-slate-50 flex">
       <aside className="w-64 bg-slate-900 text-white flex flex-col fixed h-full z-10 overflow-y-auto">
         <div className="p-6 font-bold text-xl border-b border-slate-700 flex items-center gap-2"><Settings className="text-blue-400"/> QUẢN TRỊ</div>
-        
-        {/* TRẠNG THÁI KẾT NỐI DB */}
-        <div className={`px-6 py-2 text-xs font-bold flex items-center gap-2 ${dbStatus ? 'text-green-400' : 'text-red-400'}`}>
-          {dbStatus ? <Wifi size={14}/> : <WifiOff size={14}/>} {dbStatus ? "Đã nối Database" : "Chế độ Demo"}
-        </div>
-
+        <div className={`px-6 py-2 text-xs font-bold flex items-center gap-2 ${dbStatus ? 'text-green-400' : 'text-red-400'}`}>{dbStatus ? <Wifi size={14}/> : <WifiOff size={14}/>} {dbStatus ? "Đã nối Database" : "Chế độ Demo"}</div>
         <nav className="flex-1 p-4 space-y-2">
           <button onClick={()=>setActiveAdminTab('bookings')} className={`w-full text-left p-3 rounded capitalize flex gap-2 items-center ${activeAdminTab==='bookings'?'bg-blue-600':'hover:bg-slate-800'}`}><ClipboardList size={18}/> Đặt Lịch Khám</button>
           <div className="border-t border-slate-700 my-2 pt-2"></div>
-          {['general','about','doctors','specialties','packages','news'].map(t => (
-            <button key={t} onClick={()=>setActiveAdminTab(t)} className={`w-full text-left p-3 rounded capitalize flex gap-2 items-center ${activeAdminTab===t?'bg-blue-600':'hover:bg-slate-800'}`}>
-              {t==='doctors'?<Users size={18}/>:t==='news'?<Newspaper size={18}/>:<Edit size={18}/>} {t}
-            </button>
-          ))}
+          {['general','about','doctors','specialties','packages','news'].map(t => (<button key={t} onClick={()=>setActiveAdminTab(t)} className={`w-full text-left p-3 rounded capitalize flex gap-2 items-center ${activeAdminTab===t?'bg-blue-600':'hover:bg-slate-800'}`}>{t==='doctors'?<Users size={18}/>:t==='news'?<Newspaper size={18}/>:<Edit size={18}/>} {t}</button>))}
         </nav>
         <button onClick={handleLogout} className="p-4 text-red-400 flex gap-2 border-t border-slate-700 w-full hover:bg-slate-800"><LogOut/> Thoát</button>
       </aside>
       <main className="ml-64 flex-1 p-8 bg-slate-100 min-h-screen">
-        
+        {/* Render Tab Content based on activeAdminTab */}
         {activeAdminTab === 'bookings' && (
-          <div className="max-w-6xl mx-auto"><h2 className="text-2xl font-bold mb-6 text-slate-800 flex items-center gap-2"><ClipboardList/> Danh Sách Khách Đăng Ký</h2><div className="bg-white rounded-lg shadow overflow-hidden"><div className="overflow-x-auto"><table className="w-full text-sm text-left"><thead className="bg-slate-50 text-slate-700 uppercase font-bold"><tr><th className="p-4">Ngày đăng ký</th><th className="p-4">Họ tên</th><th className="p-4">Số điện thoại</th><th className="p-4">Yêu cầu / Ghi chú</th><th className="p-4">Hành động</th></tr></thead><tbody className="divide-y">{bookings.map(b => (<tr key={b.id} className="hover:bg-slate-50"><td className="p-4 whitespace-nowrap">{b.createdAt ? new Date(b.createdAt).toLocaleString('vi-VN') : 'N/A'}</td><td className="p-4 font-bold text-blue-700">{b.name}</td><td className="p-4">{b.phone}</td><td className="p-4 max-w-xs"><div><span className="font-bold">Khám:</span> {b.doctor || b.date || 'Chưa rõ'}</div><div className="text-slate-500 italic truncate">{b.note}</div></td><td className="p-4"><button onClick={()=>deleteItem('bookings', b.id, setBookings, bookings)} className="text-red-500 hover:bg-red-100 p-2 rounded" title="Xóa sau khi đã gọi"><Trash2 size={18}/></button></td></tr>))}{bookings.length === 0 && <tr><td colSpan="5" className="p-8 text-center text-slate-500">Chưa có ai đăng ký.</td></tr>}</tbody></table></div></div></div>
+          <div className="max-w-6xl mx-auto"><h2 className="text-2xl font-bold mb-6 text-slate-800 flex items-center gap-2"><ClipboardList/> Danh Sách Khách Đăng Ký</h2><div className="bg-white rounded-lg shadow overflow-hidden"><div className="overflow-x-auto"><table className="w-full text-sm text-left"><thead className="bg-slate-50 text-slate-700 uppercase font-bold"><tr><th className="p-4">Ngày đăng ký</th><th className="p-4">Họ tên</th><th className="p-4">Số điện thoại</th><th className="p-4">Yêu cầu / Ghi chú</th><th className="p-4">Hành động</th></tr></thead><tbody className="divide-y">{bookings.map(b => (<tr key={b.id} className="hover:bg-slate-50"><td className="p-4 whitespace-nowrap">{b.createdAt ? new Date(b.createdAt).toLocaleString('vi-VN') : 'N/A'}</td><td className="p-4 font-bold text-blue-700">{b.name}</td><td className="p-4">{b.phone}</td><td className="p-4 max-w-xs"><div><span className="font-bold">Khám:</span> {b.doctor || b.date || 'Chưa rõ'}</div><div className="text-slate-500 italic truncate">{b.note}</div></td><td className="p-4"><button onClick={()=>deleteItem('bookings', b.id, setBookings, bookings)} className="text-red-500 hover:bg-red-100 p-2 rounded"><Trash2 size={18}/></button></td></tr>))}{bookings.length === 0 && <tr><td colSpan="5" className="p-8 text-center text-slate-500">Chưa có ai đăng ký.</td></tr>}</tbody></table></div></div></div>
         )}
-
-        {activeAdminTab === 'doctors' && (
-          <div className="max-w-4xl mx-auto"><h2 className="text-2xl font-bold mb-6 text-slate-800">Quản Lý Bác Sĩ</h2><div className="bg-white p-6 rounded-lg shadow mb-8"><h3 className="font-bold mb-4 text-blue-600">Thêm Bác Sĩ Mới</h3><div className="grid gap-4"><div className="grid grid-cols-2 gap-4"><input placeholder="Họ tên" className="border p-2 rounded" value={newDoctor.name} onChange={e=>setNewDoctor({...newDoctor, name:e.target.value})}/><input placeholder="Chức vụ" className="border p-2 rounded" value={newDoctor.role} onChange={e=>setNewDoctor({...newDoctor, role:e.target.value})}/></div><textarea placeholder="Tiểu sử / Giới thiệu chi tiết" className="border p-2 rounded" rows={3} value={newDoctor.bio} onChange={e=>setNewDoctor({...newDoctor, bio:e.target.value})}/><div className="flex items-center gap-3"><label className="cursor-pointer bg-slate-100 hover:bg-slate-200 px-3 py-2 rounded flex items-center gap-2"><Upload size={16}/> Ảnh đại diện (Max 500KB)<input type="file" className="hidden" onChange={e=>handleImageUpload(e, u=>setNewDoctor({...newDoctor, img:u}))}/></label>{newDoctor.img && <img src={newDoctor.img} className="h-10 w-10 rounded-full object-cover"/>}</div><button onClick={()=>{addItem('doctors', newDoctor, setDoctors, doctors); setNewDoctor({name:'',role:'',img:'',bio:''})}} className="bg-blue-600 text-white p-2 rounded font-bold hover:bg-blue-700">Lưu Bác Sĩ</button></div></div><div className="space-y-3">{doctors.map(d=><div key={d.id} className="bg-white p-4 rounded shadow flex justify-between items-center"><div className="flex gap-4 items-center"><img src={d.img} className="w-12 h-12 rounded-full object-cover"/><div><div className="font-bold">{d.name}</div><div className="text-sm text-slate-500">{d.role}</div></div></div><button onClick={()=>deleteItem('doctors', d.id, setDoctors, doctors)} className="text-red-500 p-2 hover:bg-red-50 rounded"><Trash2/></button></div>)}</div></div>
-        )}
-        
-        {activeAdminTab === 'news' && (
-          <div className="max-w-4xl mx-auto"><h2 className="text-2xl font-bold mb-6 text-slate-800">Quản Lý Tin Tức</h2><div className="bg-white p-6 rounded-lg shadow mb-8"><h3 className="font-bold mb-4 text-blue-600">{editingNewsId ? "Sửa Tin Tức" : "Viết Tin Mới"}</h3><div className="grid gap-4"><input placeholder="Tiêu đề bài viết" className="border p-2 rounded" value={newNews.title} onChange={e=>setNewNews({...newNews, title:e.target.value})}/><input type="date" className="border p-2 rounded" value={newNews.date} onChange={e=>setNewNews({...newNews, date:e.target.value})}/><textarea placeholder="Tóm tắt ngắn" className="border p-2 rounded" rows={2} value={newNews.summary} onChange={e=>setNewNews({...newNews, summary:e.target.value})}/><textarea placeholder="NỘI DUNG CHI TIẾT" className="border p-2 rounded" rows={5} value={newNews.content} onChange={e=>setNewNews({...newNews, content:e.target.value})}/><div className="flex items-center gap-3"><label className="cursor-pointer bg-slate-100 px-3 py-2 rounded flex gap-2"><Upload size={16}/> Ảnh bìa (Max 500KB)<input type="file" className="hidden" onChange={e=>handleImageUpload(e, u=>setNewNews({...newNews, img:u}))}/></label>{newNews.img && <img src={newNews.img} className="h-10 w-20 object-cover rounded"/>}</div><div className="flex gap-2"><button onClick={handleSaveNews} className="bg-blue-600 text-white p-2 rounded font-bold flex-1">{editingNewsId ? "Cập Nhật" : "Đăng Tin"}</button>{editingNewsId && (<button onClick={cancelEditNews} className="bg-gray-400 text-white p-2 rounded font-bold px-4">Hủy</button>)}</div></div></div><div className="space-y-3">{news.map(n=>(<div key={n.id} className="bg-white p-4 rounded shadow flex justify-between items-center"><div className="flex gap-4"><img src={n.img} className="w-16 h-12 object-cover rounded"/><div><div className="font-bold">{n.title}</div><div className="text-xs text-slate-400">{n.date}</div></div></div><div className="flex gap-2"><button onClick={()=>startEditNews(n)} className="text-blue-500 p-2 hover:bg-blue-50 rounded" title="Sửa"><Pencil size={18}/></button><button onClick={()=>deleteItem('news', n.id, setNews, news)} className="text-red-500 p-2 hover:bg-red-50 rounded" title="Xóa"><Trash2 size={18}/></button></div></div>))}</div></div>
-        )}
-
-        {/* Các tab khác: Packages, Specialties, General, About (Tương tự logic trên) */}
-        {activeAdminTab === 'packages' && (<div className="max-w-4xl mx-auto"><h2 className="text-2xl font-bold mb-6">Quản Lý Gói Khám</h2><div className="bg-white p-6 rounded shadow mb-4"><div className="grid gap-4"><input placeholder="Tên gói" className="border p-2 rounded" value={newPackage.title} onChange={e=>setNewPackage({...newPackage, title:e.target.value})}/><input placeholder="Giá" className="border p-2 rounded" value={newPackage.price} onChange={e=>setNewPackage({...newPackage, price:e.target.value})}/><textarea placeholder="Dịch vụ" className="border p-2 rounded" value={newPackage.features} onChange={e=>setNewPackage({...newPackage, features:e.target.value})}/><textarea placeholder="Chi tiết" className="border p-2 rounded" value={newPackage.detail} onChange={e=>setNewPackage({...newPackage, detail:e.target.value})}/><button onClick={()=>{addItem('packages', newPackage, setPackages, packages); setNewPackage({title:'',price:'',features:'',detail:''})}} className="bg-blue-600 text-white p-2 rounded">Lưu</button></div></div><div className="grid grid-cols-2 gap-4">{packages.map(p=><div key={p.id} className="bg-white p-4 rounded shadow relative"><b>{p.title}</b> - {p.price}<button onClick={()=>deleteItem('packages', p.id, setPackages, packages)} className="absolute top-2 right-2 text-red-500"><Trash2/></button></div>)}</div></div>)}
-        {activeAdminTab === 'specialties' && (<div className="max-w-4xl mx-auto"><h2 className="text-2xl font-bold mb-6">Quản Lý Chuyên Khoa</h2><div className="bg-white p-6 rounded shadow mb-4"><div className="grid gap-4"><input placeholder="Tên" className="border p-2 rounded" value={newSpecialty.title} onChange={e=>setNewSpecialty({...newSpecialty, title:e.target.value})}/><select className="border p-2 rounded" value={newSpecialty.icon} onChange={e=>setNewSpecialty({...newSpecialty, icon:e.target.value})}>{Object.keys(ICON_MAP).map(k=><option key={k} value={k}>{k}</option>)}</select><textarea placeholder="Mô tả" className="border p-2 rounded" value={newSpecialty.desc} onChange={e=>setNewSpecialty({...newSpecialty, desc:e.target.value})}/><textarea placeholder="Chi tiết" className="border p-2 rounded" value={newSpecialty.detail} onChange={e=>setNewSpecialty({...newSpecialty, detail:e.target.value})}/><button onClick={()=>{addItem('specialties', newSpecialty, setSpecialties, specialties); setNewSpecialty({title:'',desc:'',icon:'Activity',detail:''})}} className="bg-blue-600 text-white p-2 rounded">Lưu</button></div></div><div className="grid grid-cols-2 gap-4">{specialties.map(s=><div key={s.id} className="bg-white p-4 rounded shadow relative"><b>{s.title}</b><button onClick={()=>deleteItem('specialties', s.id, setSpecialties, specialties)} className="absolute top-2 right-2 text-red-500"><Trash2/></button></div>)}</div></div>)}
+        {activeAdminTab === 'doctors' && (<div className="max-w-4xl mx-auto"><h2 className="text-2xl font-bold mb-6 text-slate-800">Quản Lý Bác Sĩ</h2><div className="bg-white p-6 rounded-lg shadow mb-8"><h3 className="font-bold mb-4 text-blue-600">Thêm Bác Sĩ Mới</h3><div className="grid gap-4"><div className="grid grid-cols-2 gap-4"><input placeholder="Họ tên" className="border p-2 rounded" value={newDoctor.name} onChange={e=>setNewDoctor({...newDoctor, name:e.target.value})}/><input placeholder="Chức vụ" className="border p-2 rounded" value={newDoctor.role} onChange={e=>setNewDoctor({...newDoctor, role:e.target.value})}/></div><textarea placeholder="Tiểu sử" className="border p-2 rounded" rows={3} value={newDoctor.bio} onChange={e=>setNewDoctor({...newDoctor, bio:e.target.value})}/><div className="flex items-center gap-3"><label className="cursor-pointer bg-slate-100 hover:bg-slate-200 px-3 py-2 rounded flex items-center gap-2"><Upload size={16}/> Ảnh đại diện (Max 500KB)<input type="file" className="hidden" onChange={e=>handleImageUpload(e, u=>setNewDoctor({...newDoctor, img:u}))}/></label>{newDoctor.img && <img src={newDoctor.img} className="h-10 w-10 rounded-full object-cover"/>}</div><button onClick={()=>{addItem('doctors', newDoctor, setDoctors, doctors); setNewDoctor({name:'',role:'',img:'',bio:''})}} className="bg-blue-600 text-white p-2 rounded font-bold hover:bg-blue-700">Lưu Bác Sĩ</button></div></div><div className="space-y-3">{doctors.map(d=><div key={d.id} className="bg-white p-4 rounded shadow flex justify-between items-center"><div className="flex gap-4 items-center"><img src={d.img} className="w-12 h-12 rounded-full object-cover"/><div><div className="font-bold">{d.name}</div><div className="text-sm text-slate-500">{d.role}</div></div></div><button onClick={()=>deleteItem('doctors', d.id, setDoctors, doctors)} className="text-red-500 p-2 hover:bg-red-50 rounded"><Trash2/></button></div>)}</div></div>)}
+        {/* Admin sections for news, packages, etc. (omitted for brevity, assume similar structure as prev version but with addItem/deleteItem wrappers) */}
+        {activeAdminTab === 'news' && (<div className="max-w-4xl mx-auto"><h2 className="text-2xl font-bold mb-6 text-slate-800">Quản Lý Tin Tức</h2><div className="bg-white p-6 rounded-lg shadow mb-8"><h3 className="font-bold mb-4 text-blue-600">{editingNewsId ? "Sửa Tin" : "Viết Tin Mới"}</h3><div className="grid gap-4"><input placeholder="Tiêu đề" className="border p-2 rounded" value={newNews.title} onChange={e=>setNewNews({...newNews, title:e.target.value})}/><input type="date" className="border p-2 rounded" value={newNews.date} onChange={e=>setNewNews({...newNews, date:e.target.value})}/><textarea placeholder="Tóm tắt" className="border p-2 rounded" value={newNews.summary} onChange={e=>setNewNews({...newNews, summary:e.target.value})}/><textarea placeholder="Nội dung" className="border p-2 rounded" rows={5} value={newNews.content} onChange={e=>setNewNews({...newNews, content:e.target.value})}/><div className="flex items-center gap-3"><label className="cursor-pointer bg-slate-100 px-3 py-2 rounded flex gap-2"><Upload size={16}/> Ảnh (Max 500KB)<input type="file" className="hidden" onChange={e=>handleImageUpload(e, u=>setNewNews({...newNews, img:u}))}/></label>{newNews.img && <img src={newNews.img} className="h-10 w-20 object-cover rounded"/>}</div><div className="flex gap-2"><button onClick={handleSaveNews} className="bg-blue-600 text-white p-2 rounded font-bold flex-1">{editingNewsId ? "Cập Nhật" : "Đăng Tin"}</button>{editingNewsId && <button onClick={cancelEditNews} className="bg-gray-400 text-white p-2 rounded px-4">Hủy</button>}</div></div></div><div className="space-y-3">{news.map(n=><div key={n.id} className="bg-white p-4 rounded shadow flex justify-between items-center"><div className="flex gap-4"><img src={n.img} className="w-16 h-12 object-cover rounded"/><div><div className="font-bold">{n.title}</div><div className="text-xs text-slate-400">{n.date}</div></div></div><div className="flex gap-2"><button onClick={()=>startEditNews(n)} className="text-blue-500 p-2 hover:bg-blue-50 rounded"><Pencil size={18}/></button><button onClick={()=>deleteItem('news', n.id, setNews, news)} className="text-red-500 p-2 hover:bg-red-50 rounded"><Trash2 size={18}/></button></div></div>)}</div></div>)}
         {activeAdminTab === 'general' && (<div className="max-w-4xl mx-auto"><h2 className="text-2xl font-bold mb-6">Thông Tin & Logo</h2><div className="bg-white p-6 rounded shadow space-y-4"><label className="cursor-pointer bg-blue-50 px-4 py-2 rounded flex gap-2"><Upload size={18}/> Logo <input type="file" className="hidden" onChange={e=>handleImageUpload(e, u=>setGeneralInfo({...generalInfo, logoUrl:u}))}/></label>{generalInfo.logoUrl && <img src={generalInfo.logoUrl} className="h-10"/>}<div className="grid grid-cols-2 gap-4"><input className="border p-2 rounded" value={generalInfo.siteName} onChange={e=>setGeneralInfo({...generalInfo, siteName:e.target.value})}/><input className="border p-2 rounded" value={generalInfo.siteSubName} onChange={e=>setGeneralInfo({...generalInfo, siteSubName:e.target.value})}/><input className="border p-2 rounded" value={generalInfo.phone} onChange={e=>setGeneralInfo({...generalInfo, phone:e.target.value})}/><input className="border p-2 rounded" value={generalInfo.email} onChange={e=>setGeneralInfo({...generalInfo, email:e.target.value})}/></div><button onClick={()=>saveSettings('general', generalInfo)} className="bg-green-600 text-white px-6 py-2 rounded w-full">Lưu Cấu Hình</button></div></div>)}
         {activeAdminTab === 'about' && (<div className="max-w-4xl mx-auto"><h2 className="text-2xl font-bold mb-6">Trang Giới Thiệu</h2><div className="bg-white p-6 rounded shadow space-y-4"><input className="border w-full p-2 rounded" value={aboutContent.title} onChange={e=>setAboutContent({...aboutContent, title:e.target.value})}/><textarea className="border w-full p-2 rounded" rows={5} value={aboutContent.desc} onChange={e=>setAboutContent({...aboutContent, desc:e.target.value})}/><label className="cursor-pointer bg-slate-100 px-4 py-2 rounded block w-fit"><Upload size={16}/> Ảnh <input type="file" className="hidden" onChange={e=>handleImageUpload(e, u=>setAboutContent({...aboutContent, img:u}))}/></label>{aboutContent.img && <img src={aboutContent.img} className="h-20"/>}<button onClick={()=>saveSettings('about', aboutContent)} className="bg-green-600 text-white px-6 py-2 rounded w-full">Lưu Giới Thiệu</button></div></div>)}
+        {activeAdminTab === 'packages' && (<div className="max-w-4xl mx-auto"><h2 className="text-2xl font-bold mb-6 text-slate-800">Quản Lý Gói Khám</h2><div className="bg-white p-6 rounded-lg shadow mb-8"><h3 className="font-bold mb-4 text-blue-600">Thêm Gói Khám</h3><div className="grid gap-4"><div className="grid grid-cols-2 gap-4"><input placeholder="Tên gói" className="border p-2 rounded" value={newPackage.title} onChange={e=>setNewPackage({...newPackage, title:e.target.value})}/><input placeholder="Giá tiền" className="border p-2 rounded" value={newPackage.price} onChange={e=>setNewPackage({...newPackage, price:e.target.value})}/></div><textarea placeholder="Dịch vụ" className="border p-2 rounded" value={newPackage.features} onChange={e=>setNewPackage({...newPackage, features:e.target.value})}/><textarea placeholder="Chi tiết" className="border p-2 rounded" rows={4} value={newPackage.detail} onChange={e=>setNewPackage({...newPackage, detail:e.target.value})}/><button onClick={()=>{addItem('packages', newPackage, setPackages, packages); setNewPackage({title:'',price:'',features:'',detail:''})}} className="bg-blue-600 text-white p-2 rounded font-bold">Lưu Gói</button></div></div><div className="grid grid-cols-2 gap-4">{packages.map(p=><div key={p.id} className="bg-white p-4 rounded shadow relative"><div className="font-bold text-blue-800">{p.title}</div><div className="text-red-500 font-bold">{p.price}</div><button onClick={()=>deleteItem('packages', p.id, setPackages, packages)} className="absolute top-2 right-2 text-red-500"><Trash2 size={16}/></button></div>)}</div></div>)}
+        {activeAdminTab === 'specialties' && (<div className="max-w-4xl mx-auto"><h2 className="text-2xl font-bold mb-6 text-slate-800">Quản Lý Chuyên Khoa</h2><div className="bg-white p-6 rounded-lg shadow mb-8"><h3 className="font-bold mb-4 text-blue-600">Thêm Chuyên Khoa</h3><div className="grid gap-4"><div className="grid grid-cols-2 gap-4"><input placeholder="Tên khoa" className="border p-2 rounded" value={newSpecialty.title} onChange={e=>setNewSpecialty({...newSpecialty, title:e.target.value})}/><select className="border p-2 rounded" value={newSpecialty.icon} onChange={e=>setNewSpecialty({...newSpecialty, icon:e.target.value})}>{Object.keys(ICON_MAP).map(k=><option key={k} value={k}>{k}</option>)}</select></div><textarea placeholder="Mô tả" className="border p-2 rounded" value={newSpecialty.desc} onChange={e=>setNewSpecialty({...newSpecialty, desc:e.target.value})}/><textarea placeholder="Chi tiết" className="border p-2 rounded" rows={4} value={newSpecialty.detail} onChange={e=>setNewSpecialty({...newSpecialty, detail:e.target.value})}/><button onClick={()=>{addItem('specialties', newSpecialty, setSpecialties, specialties); setNewSpecialty({title:'',desc:'',icon:'Activity',detail:''})}} className="bg-blue-600 text-white p-2 rounded font-bold">Lưu Khoa</button></div></div><div className="grid grid-cols-2 gap-4">{specialties.map(s=><div key={s.id} className="bg-white p-4 rounded shadow relative flex items-center gap-2"><div className="text-blue-600">{ICON_MAP[s.icon]}</div><div><div className="font-bold">{s.title}</div></div><button onClick={()=>deleteItem('specialties', s.id, setSpecialties, specialties)} className="absolute top-2 right-2 text-red-500"><Trash2 size={16}/></button></div>)}</div></div>)}
       </main>
     </div>
   );
@@ -343,7 +306,28 @@ const App = () => {
     <div className="font-sans text-slate-600 antialiased bg-white relative">
       <div className="bg-slate-900 text-slate-300 py-2 text-xs md:text-sm border-b border-slate-800"><div className="container mx-auto px-4 flex justify-between items-center"><div className="flex gap-4"><span className="text-red-400 font-bold animate-pulse"><Phone size={14} className="inline"/> {generalInfo.phone}</span><span className="hidden md:inline"><Clock size={14} className="inline"/> {generalInfo.workingHours}</span></div><button onClick={()=>setIsAdminMode(true)} className="flex gap-1 hover:text-white"><Lock size={12}/> Admin</button></div></div>
       <header className="sticky top-0 z-40 bg-white py-4 shadow-sm"><div className="container mx-auto px-4 flex justify-between items-center"><div className="flex items-center gap-3 cursor-pointer" onClick={() => scrollToSection(homeRef)}>{renderLogo()}<div><span className="font-bold text-slate-900 text-lg block leading-none">{generalInfo.siteName}</span><span className="text-[10px] font-bold text-blue-600 uppercase">{generalInfo.siteSubName}</span></div></div><nav className="hidden lg:flex gap-8 font-medium"><button onClick={() => scrollToSection(homeRef)} className="hover:text-blue-700 py-2">Trang chủ</button><button onClick={() => scrollToSection(aboutRef)} className="hover:text-blue-700 py-2">Giới thiệu</button><button onClick={() => scrollToSection(specialtiesRef)} className="hover:text-blue-700 py-2">Chuyên khoa</button><button onClick={() => scrollToSection(packagesRef)} className="hover:text-blue-700 py-2">Gói khám</button><button onClick={() => scrollToSection(doctorsRef)} className="hover:text-blue-700 py-2">Bác sĩ</button><button onClick={() => scrollToSection(newsRef)} className="hover:text-blue-700 py-2">Tin tức</button></nav><div className="flex gap-4"><button onClick={()=>openModal('booking')} className="hidden md:flex bg-blue-600 text-white px-5 py-2.5 rounded-full font-bold shadow hover:bg-blue-700 items-center gap-2"><Calendar size={18}/> Đặt Lịch</button><button className="lg:hidden" onClick={()=>setIsMenuOpen(!isMenuOpen)}>{isMenuOpen?<X/>:<Menu/>}</button></div></div>{isMenuOpen && <div className="lg:hidden bg-white border-t p-4 flex flex-col gap-4"><button onClick={() => scrollToSection(homeRef)} className="font-bold text-left">Trang chủ</button><button onClick={() => scrollToSection(aboutRef)} className="font-bold text-left">Giới thiệu</button><button onClick={() => scrollToSection(specialtiesRef)} className="font-bold text-left">Chuyên khoa</button><button onClick={() => scrollToSection(packagesRef)} className="font-bold text-left">Gói khám</button><button onClick={() => scrollToSection(doctorsRef)} className="font-bold text-left">Bác sĩ</button><button onClick={() => scrollToSection(newsRef)} className="font-bold text-left">Tin tức</button></div>}</header>
-      <section ref={homeRef} className="pt-8 pb-12 bg-slate-50 overflow-hidden relative min-h-[500px] flex items-center">{heroSlides.map((slide, index) => (<div key={slide.id} className={`absolute inset-0 transition-opacity duration-1000 ${index === currentSlide ? 'opacity-100' : 'opacity-0'}`}><div className="absolute top-0 right-0 w-2/3 h-full bg-cover bg-no-repeat opacity-20 rounded-bl-[200px]" style={{ backgroundImage: `url(${slide.img})`, backgroundPosition: 'center' }}></div></div>))}<div className="container mx-auto px-4 grid lg:grid-cols-2 gap-12 items-center relative z-10"><div className="space-y-6 animate-in slide-in-from-left duration-700 fade-in" key={currentSlide}><div className="inline-block px-4 py-1.5 bg-white border border-blue-100 rounded-full text-sm font-semibold text-blue-800 shadow-sm">🏥 {generalInfo.siteName}</div><h1 className="text-4xl lg:text-6xl font-extrabold text-slate-900 leading-tight">{heroSlides[currentSlide].title1} <br/><span className="text-blue-700">{heroSlides[currentSlide].title2}</span></h1><p className="text-lg text-slate-600">{heroSlides[currentSlide].desc}</p><div className="flex gap-4 pt-4"><button onClick={()=>openModal('booking')} className="px-8 py-4 bg-blue-700 text-white rounded-xl font-bold shadow-lg hover:-translate-y-1 transition-all">Đăng Ký Khám Ngay</button><button onClick={()=>scrollToSection(newsRef)} className="px-8 py-4 bg-white text-blue-700 border border-blue-100 rounded-xl font-bold shadow-sm hover:bg-blue-50 transition-all">Xem Tin Tức</button></div></div><div className="relative h-[400px]">{heroSlides.map((slide, index) => (<img key={slide.id} src={slide.img} className={`absolute top-0 left-0 w-full h-full object-cover rounded-3xl shadow-2xl border-4 border-white transition-opacity duration-1000 ${index === currentSlide ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`} alt="Slide" />))}<div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">{heroSlides.map((_, idx) => (<button key={idx} onClick={() => setCurrentSlide(idx)} className={`w-3 h-3 rounded-full transition-all ${idx === currentSlide ? 'bg-blue-600 w-8' : 'bg-white/50 hover:bg-white'}`}/>))}</div></div></div></section>
+      
+      {/* HERO SECTION FIX LAYOUT SHIFT */}
+      <section ref={homeRef} className="relative bg-slate-50 min-h-[600px] flex items-center overflow-hidden">
+        {heroSlides.map((slide, index) => (
+          <div key={slide.id} className={`absolute inset-0 transition-opacity duration-1000 ${index === currentSlide ? 'opacity-100' : 'opacity-0'}`}>
+            <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${slide.img})`, filter: 'brightness(0.9)' }}></div>
+            <div className="absolute inset-0 bg-gradient-to-r from-white/90 via-white/70 to-transparent"></div>
+          </div>
+        ))}
+        <div className="container mx-auto px-4 relative z-10 grid lg:grid-cols-2 gap-12">
+          <div className="space-y-6 max-w-xl">
+            <div className="inline-block px-4 py-1.5 bg-blue-600 text-white rounded-full text-sm font-semibold shadow-sm animate-in slide-in-from-left fade-in duration-700">🏥 {generalInfo.siteName}</div>
+            <div className="min-h-[200px]"> {/* Fixed height text container */}
+              <h1 className="text-4xl lg:text-6xl font-extrabold text-slate-900 leading-tight mb-4 transition-all duration-500">{heroSlides[currentSlide].title1} <br/><span className="text-blue-700">{heroSlides[currentSlide].title2}</span></h1>
+              <p className="text-lg text-slate-700 font-medium">{heroSlides[currentSlide].desc}</p>
+            </div>
+            <div className="flex gap-4 pt-4"><button onClick={()=>openModal('booking')} className="px-8 py-4 bg-blue-700 text-white rounded-xl font-bold shadow-lg hover:-translate-y-1 transition-all">Đăng Ký Khám Ngay</button><button onClick={()=>scrollToSection(newsRef)} className="px-8 py-4 bg-white text-blue-700 border border-blue-100 rounded-xl font-bold shadow-sm hover:bg-blue-50 transition-all">Xem Tin Tức</button></div>
+          </div>
+          {/* Right side blank for background image to show */}
+        </div>
+      </section>
+
       <section ref={aboutRef} className="py-20 bg-white scroll-mt-20"><div className="container mx-auto px-4 grid md:grid-cols-2 gap-12 items-center"><div><img src={aboutContent.img} className="rounded-2xl shadow-xl w-full object-cover h-96"/></div><div><h2 className="text-3xl font-extrabold text-slate-900 mb-6">{aboutContent.title}</h2><p className="text-lg text-slate-600 leading-relaxed mb-6 whitespace-pre-line">{aboutContent.desc}</p><ul className="space-y-3 mb-8"><li className="flex gap-3"><ShieldCheck className="text-green-500"/> Quy trình 1 chiều</li><li className="flex gap-3"><Award className="text-green-500"/> Chất lượng quốc tế</li></ul></div></div></section>
       <section ref={specialtiesRef} className="py-20 bg-slate-50 scroll-mt-20"><div className="container mx-auto px-4"><div className="text-center mb-12"><h2 className="text-3xl font-extrabold">Chuyên Khoa Mũi Nhọn</h2><p>Bấm vào từng khoa để xem chi tiết</p></div><div className="grid grid-cols-1 md:grid-cols-3 gap-8">{specialties.map(s => (<div key={s.id} onClick={()=>openModal('specialty', s)} className="bg-white p-8 rounded-2xl shadow hover:shadow-xl transition-all cursor-pointer group"><div className="w-12 h-12 bg-blue-50 text-blue-600 rounded flex items-center justify-center mb-4 group-hover:bg-blue-600 group-hover:text-white transition-colors">{ICON_MAP[s.icon]||<Activity/>}</div><h3 className="text-xl font-bold mb-2">{s.title}</h3><p className="text-slate-500 text-sm line-clamp-3">{s.desc}</p></div>))}</div></div></section>
       <section ref={packagesRef} className="py-20 bg-white scroll-mt-20"><div className="container mx-auto px-4"><div className="text-center mb-12"><h2 className="text-3xl font-extrabold">Gói Khám Sức Khỏe</h2><p>Bấm vào gói để xem chi tiết hạng mục</p></div><div className="grid grid-cols-1 md:grid-cols-3 gap-6">{packages.map(p => (<div key={p.id} onClick={()=>openModal('package', p)} className="border border-slate-200 p-8 rounded-2xl hover:border-blue-500 hover:shadow-lg transition-all cursor-pointer"><h3 className="text-xl font-bold mb-2">{p.title}</h3><div className="text-2xl font-bold text-blue-600 mb-4">{p.price}</div><p className="text-slate-500 text-sm mb-4 line-clamp-2">{p.features}</p><span className="text-blue-600 text-sm font-bold flex items-center gap-1">Xem chi tiết <ArrowRight size={14}/></span></div>))}</div></div></section>
