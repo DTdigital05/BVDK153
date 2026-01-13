@@ -15,9 +15,13 @@ import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from
 
 // ⚠️ QUAN TRỌNG: Dán cấu hình Firebase của bạn vào đây
 const firebaseConfig = {
-  // apiKey: "AIzaSyCm11kZ3YojvvPWi2zdYIgm5MtgmxsWM2s",
-  // authDomain: "benhvien153-web.firebaseapp.com",
-  // projectId: "benhvien153-web",
+  apiKey: "AIzaSyCm11kZ3YojvvPWi2zdYIgm5MtgmxsWM2s",
+  authDomain: "benhvien153-web.firebaseapp.com",
+  projectId: "benhvien153-web",
+  storageBucket: "benhvien153-web.firebasestorage.app",
+  messagingSenderId: "989813597930",
+  appId: "1:989813597930:web:343b78dfdc60ad828a5993",
+  measurementId: "G-L0YT5PM6L8"
 };
 
 // Khởi tạo Firebase
