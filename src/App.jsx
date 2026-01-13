@@ -13,7 +13,7 @@ import { initializeApp } from "firebase/app";
 import { getFirestore, collection, getDocs, addDoc, deleteDoc, doc, updateDoc, setDoc, getDoc } from "firebase/firestore";
 import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "firebase/auth";
 
-// ⚠️ QUAN TRỌNG: Dán cấu hình Firebase của bạn vào đây
+// ⚠️ QUAN TRỌNG: Cấu hình Firebase đã được điền đúng
 const firebaseConfig = {
   apiKey: "AIzaSyCm11kZ3YojvvPWi2zdYIgm5MtgmxsWM2s",
   authDomain: "benhvien153-web.firebaseapp.com",
@@ -28,9 +28,13 @@ const firebaseConfig = {
 let db = null;
 let auth = null;
 if (firebaseConfig.apiKey) {
-  const app = initializeApp(firebaseConfig);
-  db = getFirestore(app);
-  auth = getAuth(app);
+  try {
+    const app = initializeApp(firebaseConfig);
+    db = getFirestore(app);
+    auth = getAuth(app);
+  } catch (error) {
+    console.error("Lỗi khởi tạo Firebase:", error);
+  }
 }
 
 // --- BỘ ICON ---
@@ -129,7 +133,12 @@ const App = () => {
   // --- INIT ---
   useEffect(() => {
     fetchData();
-    if (auth) onAuthStateChanged(auth, setUser);
+    if (auth) {
+      const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+        setUser(currentUser);
+      });
+      return () => unsubscribe();
+    }
   }, []);
 
   // Auto-scroll chatbox
@@ -170,9 +179,9 @@ const App = () => {
           if (doc.id === 'general') setGeneralInfo(prev => ({ ...prev, ...doc.data() }));
           if (doc.id === 'about') setAboutContent(doc.data());
         });
-      } catch (error) { console.error(error); }
+      } catch (error) { console.error("Lỗi tải data từ Firebase:", error); }
     } else {
-      // MOCK DATA
+      // MOCK DATA (Dự phòng khi chưa kết nối mạng hoặc lỗi)
       setDoctors([
         { id: 1, name: "BS.CKII Nguyễn Văn A", role: "Giám Đốc", img: "https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=400", bio: "Hơn 20 năm kinh nghiệm quản lý y tế. Nguyên trưởng khoa Nội BV Đa khoa Tỉnh. Chuyên sâu về Tim mạch và Nội tiết." },
         { id: 2, name: "ThS.BS Trần Thị B", role: "Trưởng Khoa Nội", img: "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=400", bio: "Tốt nghiệp Thạc sĩ Y khoa tại Đại học Y Hà Nội. Có 15 năm kinh nghiệm điều trị các bệnh lý nội khoa phức tạp." }
